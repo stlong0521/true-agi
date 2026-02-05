@@ -82,6 +82,27 @@ class MultiHeadAttention(nn.Module):
         return attention_output
 
 
+class FeedForward(nn.Module):
+    def __init__(self, d_model, d_ff):
+        """
+        Initialize the FeedForward layer.
+        :param d_model: The dimension of the model.
+        :param d_ff: The dimension of the inner layer.
+        """
+        super().__init__()
+        self.linear1 = nn.Linear(d_model, d_ff, bias=True)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(d_ff, d_model, bias=True)
+
+    def forward(self, x):
+        """
+        Compute the feed-forward network.
+        :param x: The input (batch_size x seq_len x d_model).
+        :return: Output of the feed-forward network.
+        """
+        return self.linear2(self.relu(self.linear1(x)))  # batch_size x seq_len x d_model
+
+
 class Transformer(nn.Module):
 
     def __init__(self):
