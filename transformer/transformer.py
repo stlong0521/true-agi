@@ -103,8 +103,42 @@ class FeedForward(nn.Module):
         return self.linear2(self.relu(self.linear1(x)))  # batch_size x seq_len x d_model
 
 
+class Block(nn.Module):
+    def __init__(self, d_model, n_heads, d_ff):
+        """
+        Initialize the Transformer Block.
+        :param d_model: The dimension of the model.
+        :param n_heads: The number of attention heads.
+        :param d_ff: The dimension of the inner feed-forward layer.
+        """
+        super().__init__()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.mha = MultiHeadAttention(d_model, n_heads)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ffn = FeedForward(d_model, d_ff)
+
+    def forward(self, x):
+        """
+        Compute the Transformer block
+        Using Pre-LayerNorm, different from the original transformer paper (Post-LayerNorm) but shows more stability in modern LLMs.
+        :param x: The input (batch_size x seq_len x d_model).
+        :return: Output of the Transformer block.
+        """
+        # Pre-LayerNorm architecture
+        x = x + self.mha(self.ln1(x))
+        x = x + self.ffn(self.ln2(x))
+        return x  # batch_size x seq_len x d_model
+
+
 class Transformer(nn.Module):
 
-    def __init__(self):
+    def __init__(self, d_model, n_heads, d_ff, n_layers):
         super().__init__()
-        pass
+        self.blocks = nn.ModuleList([Block(d_model, n_heads, d_ff) for _ in range(n_layers)])
+        self.ln_f = nn.LayerNorm(d_model)  # The final layer norm
+
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)  # batch_size x seq_len x d_model
+        x = self.ln_f(x)  # batch_size x seq_len x d_model
+        return x  # batch_size x seq_len x d_model

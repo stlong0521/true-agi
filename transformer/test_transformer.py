@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformer import SingleHeadAttention, MultiHeadAttention, FeedForward
+from transformer import SingleHeadAttention, MultiHeadAttention, FeedForward, Block
 
 def test_single_head_attention():
     d_model = 8
@@ -79,6 +79,27 @@ def test_feed_forward_logic():
     print("FeedForward Logic verification passed!")
 
 
+def test_block_shape():
+    d_model = 8
+    n_heads = 2
+    d_ff = 32
+    batch_size = 2
+    seq_len = 5
+
+    block = Block(d_model, n_heads, d_ff)
+
+    # Dummy input
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    output = block(x)
+
+    print(f"Block - Input shape: {x.shape}")
+    print(f"Block - Output shape: {output.shape}")
+
+    assert output.shape == (batch_size, seq_len, d_model), f"Expected shape {(batch_size, seq_len, d_model)}, but got {output.shape}"
+    print("Block Shape verification passed!")
+
+
 if __name__ == "__main__":
     print("Running SingleHeadAttention tests...")
     test_single_head_attention()
@@ -89,5 +110,8 @@ if __name__ == "__main__":
     print("Running FeedForward tests...")
     test_feed_forward_shape()
     test_feed_forward_logic()
-    
+
+    print("Running Block tests...")
+    test_block_shape()
+
     print("All tests passed!")
