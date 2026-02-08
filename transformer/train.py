@@ -9,7 +9,7 @@ train_split = 0.9
 
 # Download the dataset if it doesn't exist
 data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-data_path = "../data/tinyshakespeare/input.txt"
+data_path = "./data/tinyshakespeare/input.txt"
 
 if not os.path.exists(data_path):
     print(f"Downloading dataset from {data_url}...")
