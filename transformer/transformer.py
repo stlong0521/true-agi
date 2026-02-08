@@ -20,19 +20,19 @@ class SingleHeadAttention(nn.Module):
     def forward(self, x):
         """
         Compute the scaled dot-product attention.
-        :param x: The input (batch_size x seq_len x d_model).
+        :param x: The input (batch_size x block_size x d_model).
         :return: Attention output.
         """
-        Q = self.W_q(x)  # batch_size x seq_len x d_head
-        K = self.W_k(x)  # batch_size x seq_len x d_head
-        V = self.W_v(x)  # batch_size x seq_len x d_head
+        Q = self.W_q(x)  # batch_size x block_size x d_head
+        K = self.W_k(x)  # batch_size x block_size x d_head
+        V = self.W_v(x)  # batch_size x block_size x d_head
 
         # Scaled dot-product attention
-        attention_scores = (Q @ K.transpose(-2, -1)) / (self.d_head ** 0.5)  # batch_size x seq_len x seq_len
+        attention_scores = (Q @ K.transpose(-2, -1)) / (self.d_head ** 0.5)  # batch_size x block_size x block_size
 
         # In a decoder model, apply mask to prevent attending to future tokens
-        seq_len = x.shape[1]
-        mask = torch.tril(torch.ones(seq_len, seq_len))
+        block_size = x.shape[1]
+        mask = torch.tril(torch.ones(block_size, block_size))
         attention_scores = attention_scores.masked_fill(mask == 0, float('-inf'))
 
         # Softmax on the last dimension; F.softmax is essentially doing the following:
@@ -40,7 +40,7 @@ class SingleHeadAttention(nn.Module):
         # attention_scores /= np.sum(attention_scores, axis=-1, keepdims=True)
         attention_weights = F.softmax(attention_scores, dim=-1)
 
-        attention_output = attention_weights @ V  # batch_size x seq_len x d_head
+        attention_output = attention_weights @ V  # batch_size x block_size x d_head
         return attention_output
 
 
@@ -67,17 +67,17 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         """
         Compute the multi-head attention.
-        :param x: The input (batch_size x seq_len x d_model).
+        :param x: The input (batch_size x block_size x d_model).
         :return: Attention output.
         """
         # Collect outputs from each head
-        head_outputs = [head(x) for head in self.heads]  # List of n_heads * (batch_size x seq_len x d_head)
+        head_outputs = [head(x) for head in self.heads]  # List of n_heads * (batch_size x block_size x d_head)
         
         # Concatenate outputs along the last dimension
-        attention_output = torch.cat(head_outputs, dim=-1)  # batch_size x seq_len x d_model
+        attention_output = torch.cat(head_outputs, dim=-1)  # batch_size x block_size x d_model
 
         # Final projection
-        attention_output = self.W_o(attention_output)  # batch_size x seq_len x d_model
+        attention_output = self.W_o(attention_output)  # batch_size x block_size x d_model
 
         return attention_output
 
@@ -97,10 +97,10 @@ class FeedForward(nn.Module):
     def forward(self, x):
         """
         Compute the feed-forward network.
-        :param x: The input (batch_size x seq_len x d_model).
+        :param x: The input (batch_size x block_size x d_model).
         :return: Output of the feed-forward network.
         """
-        return self.linear2(self.relu(self.linear1(x)))  # batch_size x seq_len x d_model
+        return self.linear2(self.relu(self.linear1(x)))  # batch_size x block_size x d_model
 
 
 class Block(nn.Module):
@@ -121,13 +121,13 @@ class Block(nn.Module):
         """
         Compute the Transformer block
         Using Pre-LayerNorm, different from the original transformer paper (Post-LayerNorm) but shows more stability in modern LLMs.
-        :param x: The input (batch_size x seq_len x d_model).
+        :param x: The input (batch_size x block_size x d_model).
         :return: Output of the Transformer block.
         """
         # Pre-LayerNorm architecture
         x = x + self.mha(self.ln1(x))
         x = x + self.ffn(self.ln2(x))
-        return x  # batch_size x seq_len x d_model
+        return x  # batch_size x block_size x d_model
 
 
 class Transformer(nn.Module):
@@ -141,16 +141,16 @@ class Transformer(nn.Module):
         self.lm_head = nn.Linear(d_model, vocab_size)
 
     def forward(self, idx):
-        batch_size, seq_len = idx.shape
+        batch_size, block_size = idx.shape
 
-        # idx and targets are both (batch_size, seq_len) tensor of integers
-        tok_emb = self.token_embedding_table(idx)  # batch_size x seq_len x d_model
-        pos_emb = self.position_embedding_table(torch.arange(seq_len, device=idx.device))  # seq_len x d_model
-        x = tok_emb + pos_emb  # batch_size x seq_len x d_model; note: pos_emb is auto broadcasted to all batches in this operation
+        # idx and targets are both (batch_size, block_size) tensor of integers
+        tok_emb = self.token_embedding_table(idx)  # batch_size x block_size x d_model
+        pos_emb = self.position_embedding_table(torch.arange(block_size, device=idx.device))  # block_size x d_model
+        x = tok_emb + pos_emb  # batch_size x block_size x d_model; note: pos_emb is auto broadcasted to all batches in this operation
 
         for block in self.blocks:
-            x = block(x)  # batch_size x seq_len x d_model
-        x = self.ln_f(x)  # batch_size x seq_len x d_model
-        logits = self.lm_head(x) # batch_size x seq_len x vocab_size
+            x = block(x)  # batch_size x block_size x d_model
+        x = self.ln_f(x)  # batch_size x block_size x d_model
+        logits = self.lm_head(x) # batch_size x block_size x vocab_size
 
         return logits
