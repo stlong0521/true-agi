@@ -4,7 +4,7 @@ import os
 
 # Hyperparameters for data loading
 batch_size = 32
-block_size = 64  # context length
+block_size = 64
 train_split = 0.9
 
 # Download the dataset if it doesn't exist
@@ -51,19 +51,32 @@ def get_batch(split):
     return x, y
 
 if __name__ == "__main__":
+    from transformer import Transformer
+
+    # Model hyperparameters
+    d_model = 128
+    n_heads = 4
+    d_ff = 512
+    n_layers = 4
+
+    # Instantiate the model
+    model = Transformer(vocab_size, d_model, n_heads, d_ff, n_layers, block_size)
+    print(f"Model instantiated with vocab_size={vocab_size}, d_model={d_model}, n_heads={n_heads}, d_ff={d_ff}, n_layers={n_layers}, block_size={block_size}")
+
     # Simple verification
     xb, yb = get_batch('train')
-    print('inputs:')
-    print(xb.shape)
-    print(xb)
-    print('targets:')
-    print(yb.shape)
-    print(yb)
+    print('inputs shape:', xb.shape)
+    print('targets shape:', yb.shape)
+
+    # Forward pass
+    logits = model(xb)
+    print('logits shape:', logits.shape)
+
+    # Sanity check: logits shape should be (batch_size, block_size, vocab_size)
+    expected_shape = (batch_size, block_size, vocab_size)
+    if logits.shape == expected_shape:
+        print("Success: Logits have the expected shape!")
+    else:
+        print(f"Error: Logits have shape {logits.shape}, expected {expected_shape}")
 
     print('----')
-
-    for b in range(1): # print the first batch entry
-        for t in range(3): # print first 3 time steps
-            context = xb[b, :t+1]
-            target = yb[b,t]
-            print(f"when input is {context.tolist()} the target: {target}")

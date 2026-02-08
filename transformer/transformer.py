@@ -132,13 +132,25 @@ class Block(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, d_model, n_heads, d_ff, n_layers):
+    def __init__(self, vocab_size, d_model, n_heads, d_ff, n_layers, block_size):
         super().__init__()
+        self.token_embedding_table = nn.Embedding(vocab_size, d_model)
+        self.position_embedding_table = nn.Embedding(block_size, d_model)
         self.blocks = nn.ModuleList([Block(d_model, n_heads, d_ff) for _ in range(n_layers)])
         self.ln_f = nn.LayerNorm(d_model)  # The final layer norm
+        self.lm_head = nn.Linear(d_model, vocab_size)
 
-    def forward(self, x):
+    def forward(self, idx):
+        batch_size, seq_len = idx.shape
+
+        # idx and targets are both (batch_size, seq_len) tensor of integers
+        tok_emb = self.token_embedding_table(idx)  # batch_size x seq_len x d_model
+        pos_emb = self.position_embedding_table(torch.arange(seq_len, device=idx.device))  # seq_len x d_model
+        x = tok_emb + pos_emb  # batch_size x seq_len x d_model; note: pos_emb is auto broadcasted to all batches in this operation
+
         for block in self.blocks:
             x = block(x)  # batch_size x seq_len x d_model
         x = self.ln_f(x)  # batch_size x seq_len x d_model
-        return x  # batch_size x seq_len x d_model
+        logits = self.lm_head(x) # batch_size x seq_len x vocab_size
+
+        return logits
