@@ -32,7 +32,7 @@ class SingleHeadAttention(nn.Module):
 
         # In a decoder model, apply mask to prevent attending to future tokens
         block_size = x.shape[1]
-        mask = torch.tril(torch.ones(block_size, block_size))
+        mask = torch.tril(torch.ones(block_size, block_size, device=x.device))
         attention_scores = attention_scores.masked_fill(mask == 0, float('-inf'))
 
         # Softmax on the last dimension; F.softmax is essentially doing the following:
@@ -154,3 +154,25 @@ class Transformer(nn.Module):
         logits = self.lm_head(x) # batch_size x block_size x vocab_size
 
         return logits
+
+    def generate(self, idx, max_new_tokens):
+        """
+        Generate new tokens given a context.
+        :param idx: The current context (batch_size x block_size) or (batch_size x current_len).
+        :param max_new_tokens: The number of tokens to generate.
+        :return: Generated tokens (batch_size x (current_len + max_new_tokens)).
+        """
+        for _ in range(max_new_tokens):
+            # Crop idx to the last block_size tokens
+            idx_cond = idx[:, -self.position_embedding_table.num_embeddings:]  # batch_size x block_size
+            # Get the predictions
+            logits = self(idx_cond)  # batch_size x block_size x vocab_size
+            # Focus only on the last time step
+            logits = logits[:, -1, :]  # batch_size x vocab_size
+            # Apply softmax to get probabilities
+            probs = F.softmax(logits, dim=-1)  # batch_size x vocab_size
+            # Sample from the distribution (weighted samplin to allow for more random/creative text generation)
+            idx_next = torch.multinomial(probs, num_samples=1)  # batch_size x 1
+            # Append sampled index to the running sequence
+            idx = torch.cat((idx, idx_next), dim=1)  # batch_size x (current_len + 1)
+        return idx  # batch_size x (current_len + max_new_tokens)
