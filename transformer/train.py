@@ -3,20 +3,42 @@ import torch.nn.functional as F
 import requests
 import os
 
-# Hyperparameters for data loading
-batch_size = 32
-block_size = 64
-train_split = 0.9
-
-# Training hyperparameters
-max_iters = 1000
-eval_interval = 200
-learning_rate = 3e-4
-eval_iters = 100
+from transformer import Transformer
 
 # Device configuration
 device = 'cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu')
 print(f"Using device: {device}")
+
+# Hyperparameters
+train_split = 0.8
+if torch.cuda.is_available():
+    # REAL hyperparameters for GPU
+    batch_size = 32
+    block_size = 64
+    max_iters = 1000
+    eval_interval = 200
+    eval_iters = 100
+    d_model = 384
+    n_heads = 6
+    n_layers = 6
+    d_ff = 512
+    learning_rate = 3e-4
+    max_new_tokens = 500
+    print("Using REAL hyperparameters (GPU available)")
+else:
+    # POC hyperparameters for CPU/MPS
+    batch_size = 4
+    block_size = 8
+    max_iters = 20
+    eval_interval = 20
+    eval_iters = 10
+    d_model = 32
+    n_heads = 2
+    n_layers = 2
+    d_ff = 64
+    learning_rate = 3e-4
+    max_new_tokens = 50
+    print("Using POC hyperparameters (No GPU available)")
 
 # Download the dataset if it doesn't exist
 data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
@@ -82,14 +104,6 @@ def estimate_loss(model):
     return out
 
 if __name__ == "__main__":
-    from transformer import Transformer
-
-    # Model hyperparameters
-    d_model = 128
-    n_heads = 4
-    d_ff = 512
-    n_layers = 4
-
     # Instantiate the model
     model = Transformer(vocab_size, d_model, n_heads, d_ff, n_layers, block_size)
     model.to(device)
@@ -126,6 +140,6 @@ if __name__ == "__main__":
 
     print("Generating sample text...")
     context = torch.zeros((1, 1), dtype=torch.long, device=device)  # Start with a single 'zero' / newline token
-    print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
+    print(decode(model.generate(context, max_new_tokens=max_new_tokens)[0].tolist()))
 
     print('----')
