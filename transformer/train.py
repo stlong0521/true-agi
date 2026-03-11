@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import requests
 import os
+import time
 
 from transformer import Transformer
 
@@ -109,10 +110,16 @@ if __name__ == "__main__":
     model.to(device)
     print(f"Model instantiated and moved to {device}")
 
+    # Benchmarking: Parameter count
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of parameters: {num_params:,}")
+
     # Create a PyTorch optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     print("Starting training...")
+    start_time = time.time()
+
     for iter in range(max_iters):
         # Every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0:
@@ -134,9 +141,23 @@ if __name__ == "__main__":
         loss.backward()  # Compute gradients by backpropagating the loss
         optimizer.step()  # Update weights using the computed gradients
 
+    end_time = time.time()
+    total_time = end_time - start_time
+
     # Final evaluation
     losses = estimate_loss(model)
     print(f"Final step {max_iters}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+    # Benchmarking: Wall clock time and total FLOPs
+    # Heuristic: 2 (mul-add) * 3 (forward + backward) = 6 * params * tokens
+    print(f"\n--- Benchmark Results ---")
+    print(f"Wall clock time: {total_time:.2f} seconds")
+    total_flops = 6 * num_params * batch_size * block_size * max_iters
+    if total_flops < 1e11:
+        print(f"Total FLOPs (estimated): {total_flops / 1e9:.2f} GFLOPs")
+    else:
+        print(f"Total FLOPs (estimated): {total_flops / 1e12:.2f} TFLOPs")
+    print(f"--------------------------\n")
 
     print("Generating sample text...")
     context = torch.zeros((1, 1), dtype=torch.long, device=device)  # Start with a single 'zero' / newline token
