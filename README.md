@@ -32,6 +32,21 @@ To run the training script using `uv run`:
 uv run python transformer/train.py
 ```
 
+This script will:
+1. Download the Tiny Shakespeare dataset.
+2. Train the character-level Transformer model.
+3. Save the model checkpoint and metadata to `./model/checkpoint.pt`.
+
+### Inference
+
+Once the model is trained, you can run inference using:
+
+```bash
+uv run python transformer/inference.py
+```
+
+This will load the saved model and generate text based on a hardcoded prompt (default: `"ROMEO:"`).
+
 ### Running Tests
 
 To run the transformer unit tests:
