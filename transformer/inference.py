@@ -28,27 +28,34 @@ def load_model(model_path, device):
     
     # Extract metadata (character mappings)
     metadata = checkpoint['metadata']
+    stoi = metadata['stoi']
     itos = metadata['itos']
     
-    # Decoder function
-    # Note: torch.save might save keys as strings if it was a JSON-like object, but here it's a dict.
-    # However, when loading back, sometimes integer keys in dicts remain integers. 
-    # Let's be robust:
+    # Ensure keys are integers for itos
     itos = {int(k): v for k, v in itos.items()}
+
+    # Encoder and Decoder functions
+    encode = lambda s: [stoi[c] for c in s]
     decode = lambda l: ''.join([itos[i] for i in l])
     
-    return model, decode
+    return model, encode, decode
 
 if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu')
     model_path = './model/checkpoint.pt'
     
     try:
-        model, decode = load_model(model_path, device)
+        model, encode, decode = load_model(model_path, device)
         print(f"Model loaded successfully from {model_path}")
         
+        # Define a prompt
+        prompt = "ROMEO:"
+        print(f"\nPrompt: {prompt}")
+
+        # Encode the prompt
+        context = torch.tensor(encode(prompt), dtype=torch.long, device=device).unsqueeze(0)  # (1, len(prompt))
+
         # Generate some text
-        context = torch.zeros((1, 1), dtype=torch.long, device=device)  # Start with a single 'zero' / newline token
         generated_chars = model.generate(context, max_new_tokens=100)[0].tolist()
         print("\nGenerated text:")
         print("--------------------------")
