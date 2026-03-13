@@ -157,10 +157,31 @@ if __name__ == "__main__":
         print(f"Total FLOPs (estimated): {total_flops / 1e9:.2f} GFLOPs")
     else:
         print(f"Total FLOPs (estimated): {total_flops / 1e12:.2f} TFLOPs")
-    print(f"--------------------------\n")
 
-    print("Generating sample text...")
-    context = torch.zeros((1, 1), dtype=torch.long, device=device)  # Start with a single 'zero' / newline token
-    print(decode(model.generate(context, max_new_tokens=max_new_tokens)[0].tolist()))
+    # Save the model
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'hyperparameters': {
+            'vocab_size': vocab_size,
+            'd_model': d_model,
+            'n_heads': n_heads,
+            'd_ff': d_ff,
+            'n_layers': n_layers,
+            'block_size': block_size,
+        },
+        'metadata': {
+            'chars': chars,
+            'stoi': stoi,
+            'itos': itos,
+        },
+        'iter': max_iters,
+        'loss': losses['val']
+    }
+    model_path = "./model/checkpoint.pt"
+    if not os.path.exists(model_path):
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    torch.save(checkpoint, model_path)
+    print(f"\nModel and metadata saved to {model_path}")
 
     print('----')
